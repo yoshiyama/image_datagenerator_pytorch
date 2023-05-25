@@ -27,9 +27,9 @@ mask_transforms = Compose([
     RandomRotation(180)
 ])
 #jpeg images
-inpf_path_jpg=r"C:\Users\d18036\Desktop\ImageDataGenerator_hayashi\JPEGImages+shear"
+inpf_path_jpg=r"/mnt/c/Users/survey/Documents/GitHub/ImageDataGenerator/JPEGImages+shear"
 #mask images
-inpf_path_png=r"C:\Users\d18036\Desktop\ImageDataGenerator_hayashi\SegmentationClass+shear"
+inpf_path_png=r"/mnt/c/Users/survey/Documents/GitHub/ImageDataGenerator/SegmentationClass+shear"
 
 list_wkk_jpg=os.listdir(inpf_path_jpg)
 list_wkk_png=os.listdir(inpf_path_png)
