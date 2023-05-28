@@ -23,7 +23,19 @@ list_wkk_png = sorted(glob(os.path.join(inpf_path_png, '*.png')))
 
 flipper = RandomHorizontalFlip(p=1)
 jitter = ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.04)
-shearer = RandomAffine(degrees=0, shear=20)
+
+shear_value = 0.2  # シアーの値を固定
+
+def shear_image(image, shear_value):
+    width, height = image.size
+
+    # アフィン変換行列を作成
+    matrix = (1, shear_value, 0, 0, 1, 0)
+
+    # シアー変換を適用
+    sheared_image = image.transform((width, height), Image.AFFINE, matrix, Image.BICUBIC)
+
+    return sheared_image
 
 def process_files(files):
     file_jpg, file_png = files
@@ -31,40 +43,50 @@ def process_files(files):
     filename_png = os.path.splitext(os.path.basename(file_png))[0]
     rotation_angle = np.random.uniform(-args.angle, args.angle)
 
-    # rotation For jpg
+    # Open image
     image_jpg = Image.open(file_jpg)
-    image_jpg_orig = image_jpg.copy()  # Save the original for further transformations
-    image_jpg = ToTensor()(image_jpg)
-    image_jpg = Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x)(image_jpg)  # Ensure 3-channel for image
-    image_jpg = TF.rotate(image_jpg, rotation_angle)
-    image_jpg = TF.to_pil_image(image_jpg)
-    fstring_jpg_rot = filename_jpg + "-rot{}.jpg".format(args.angle)
-    image_jpg.save(os.path.join(inpf_path_jpg, fstring_jpg_rot))
-
-    # For png
     image_png = Image.open(file_png)
-    image_png_orig = image_png.copy()  # Save the original for further transformations
-    image_png = image_png.rotate(rotation_angle)  # Rotate the image
-    fstring_png_rot = filename_png + "-rot{}.png".format(args.angle)
-    image_png.save(os.path.join(inpf_path_png, fstring_png_rot))
 
-    # Apply horizontal flip and save for jpg and png
-    image_jpg = flipper(image_jpg_orig)
-    image_jpg.save(os.path.join(inpf_path_jpg, filename_jpg + "-flip.jpg"))
-    image_png = flipper(image_png_orig)
-    image_png.save(os.path.join(inpf_path_png, filename_png + "-flip.png"))
+    # Apply transformations
+    for image, inpf_path, filename, fstring_suffix in [(image_jpg, inpf_path_jpg, filename_jpg, '.jpg'),
+                                                       (image_png, inpf_path_png, filename_png, '.png')]:
+        # Save original image
+        image_orig = image.copy()
+        image_flipped = flipper(image_orig)
 
-    # Apply color jitter and save for jpg and png
-    image_jpg = jitter(image_jpg_orig)
-    image_jpg.save(os.path.join(inpf_path_jpg, filename_jpg + "-jitter.jpg"))
-    image_png = image_png_orig.copy()  # We only save the copy with the same name but no color jitter is applied
-    image_png.save(os.path.join(inpf_path_png, filename_png + "-jitter.png"))
+        # For original image
+        image_rot = image.rotate(rotation_angle)  # Rotate
+        fstring_rot = filename + "-rot{}".format(args.angle) + fstring_suffix
+        image_rot.save(os.path.join(inpf_path, fstring_rot))
 
-    # Apply shear and save
-    image_jpg = shearer(image_jpg_orig)
-    image_jpg.save(os.path.join(inpf_path_jpg, filename_jpg + "-shear.jpg"))
-    image_png = shearer(image_png_orig)
-    image_png.save(os.path.join(inpf_path_png, filename_png + "-shear.png"))
+        # Apply color jitter (for jpg only) and save
+        if fstring_suffix == '.jpg':
+            image_jitter = jitter(image)
+            image_jitter.save(os.path.join(inpf_path, filename + "-jitter" + fstring_suffix))
+        else:  # Save the png image without applying color jitter
+            image.save(os.path.join(inpf_path, filename + "-jitter" + fstring_suffix))
+
+        # Apply shear
+        image_shear = shear_image(image, shear_value)
+        image_shear.save(os.path.join(inpf_path, filename + "-shear" + fstring_suffix))
+
+        # For flipped image
+        image_flipped.save(os.path.join(inpf_path, filename + "-flip" + fstring_suffix))
+
+        image_rot = image_flipped.rotate(rotation_angle)  # Rotate
+        fstring_rot = filename + "-rot{}-flip".format(args.angle) + fstring_suffix
+        image_rot.save(os.path.join(inpf_path, fstring_rot))
+
+        # Apply color jitter (for jpg only) and save
+        if fstring_suffix == '.jpg':
+            image_jitter = jitter(image_flipped)
+            image_jitter.save(os.path.join(inpf_path, filename + "-flip-jitter" + fstring_suffix))
+        else:  # Save the png image without applying color jitter
+            image_flipped.save(os.path.join(inpf_path, filename + "flip-jitter-" + fstring_suffix))
+
+        # Apply shear
+        image_shear = shear_image(image_flipped, shear_value)
+        image_shear.save(os.path.join(inpf_path, filename + "-flip-shear" + fstring_suffix))
 
 num_processes = mp.cpu_count()
 
